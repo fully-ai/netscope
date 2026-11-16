@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0] - 2026-11-16
+
+### Added
+- Interactive local HTTP explorer (`netscope serve`) and single-packet JSON inspector (`netscope inspect`).
+- Integration test coverage for 802.1Q VLAN, IPv6, and ICMPv6 dissection.
+- Comprehensive README with Mermaid diagram, CLI/HTTP reference, and known limitations.
+
 ## [0.1.0] - 2026-11-16
 
 ### Added

@@ -3,6 +3,7 @@ use netscope::analysis::{analyze_packets, filter_packets, PacketFilter};
 use netscope::dissect::{dissect_packet, DissectedPacket};
 use netscope::export::{export_csv, export_dot, export_html, export_json};
 use netscope::pcap::parse_pcap_file;
+use netscope::web::serve_report;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
@@ -45,6 +46,18 @@ enum Commands {
         format: Format,
         #[arg(long)]
         output: Option<PathBuf>,
+    },
+    /// Inspect full dissected metadata for a single packet number (1-indexed)
+    Inspect {
+        file: PathBuf,
+        #[arg(long)]
+        index: usize,
+    },
+    /// Launch an interactive local HTTP report explorer for a PCAP file
+    Serve {
+        file: PathBuf,
+        #[arg(long, default_value = "127.0.0.1:8088")]
+        addr: String,
     },
 }
 
@@ -161,6 +174,29 @@ fn main() {
                 fs::write(&out_path, rendered).expect("failed to write output file");
             } else {
                 print!("{rendered}");
+            }
+        }
+        Commands::Inspect { file, index } => {
+            let packets = load_dissected(&file);
+            match packets.iter().find(|p| p.index == index) {
+                Some(pkt) => {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(pkt).expect("JSON serialization failed")
+                    );
+                }
+                None => {
+                    eprintln!("packet #{index} not found (total {})", packets.len());
+                    process::exit(1);
+                }
+            }
+        }
+        Commands::Serve { file, addr } => {
+            let packets = load_dissected(&file);
+            let report = analyze_packets(&packets);
+            if let Err(e) = serve_report(&addr, &report, &packets) {
+                eprintln!("server error: {e}");
+                process::exit(1);
             }
         }
     }

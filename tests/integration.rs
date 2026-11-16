@@ -174,3 +174,22 @@ fn test_pcap_dissection_sessions_filters_and_exports() {
     let html_out = export_html(&report, &dissected);
     assert!(html_out.contains("NetScope PCAP Traffic Analysis"));
 }
+
+#[test]
+fn test_vlan_ipv6_and_icmp_dissection() {
+    // 802.1Q VLAN tagged IPv6 ICMPv6 frame
+    let mut frame = eth_header([0x00; 6], [0x11; 6], 0x8100);
+    frame.extend_from_slice(&[0x00, 0x0a]); // VLAN ID 10
+    frame.extend_from_slice(&0x86ddu16.to_be_bytes()); // EtherType IPv6
+                                                       // IPv6 header (40 bytes): next_header=58 (ICMPv6)
+    frame.extend_from_slice(&[0x60, 0x00, 0x00, 0x00, 0x00, 0x08, 58, 64]);
+    frame.extend_from_slice(&[0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
+    frame.extend_from_slice(&[0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2]);
+    frame.extend_from_slice(&[128, 0, 0, 0, 0, 1, 0, 1]); // Echo request
+
+    let pkt = dissect_packet(1, 1_000_000, frame.len() as u32, &frame);
+    assert_eq!(pkt.ethertype, "IPv6");
+    assert_eq!(pkt.protocol, "ICMPv6");
+    assert_eq!(pkt.src_ip.as_deref(), Some("fe80::1"));
+    assert_eq!(pkt.dst_ip.as_deref(), Some("fe80::2"));
+}
